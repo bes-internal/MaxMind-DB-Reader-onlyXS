@@ -1,7 +1,6 @@
 *.o
 .\#*
 .build
-.tidyall.d
 Build
 Debian_CPANTS.txt
 MANIFEST
@@ -28,3 +27,4 @@ lib/MaxMind/DB/Reader/onlyXS.o
 c/*.o
 MaxMind-DB-Reader-onlyXS-*
 /dev/local-libmaxminddb
+/dev/local-bench

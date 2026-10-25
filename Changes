@@ -13,10 +13,11 @@
 - New tests: t/lookup.t (ipv4/ipv6/mixed databases with all record sizes, all
   data types, broken databases, errors), t/lazy-load.t, t/usage.t.
   The old tests of MaxMind::DB::Reader are removed.
-- dev/: cpm based development dependencies (dev.pl, exec.pl, clean-dev.pl) and
-  dev/test-libmaxminddb.pl to run the tests against given libmaxminddb versions.
-  Checked with libmaxminddb 1.9.1 and 1.14.1.
-- Remove .mailmap, rewrite README.md and CONTRIBUTING.md.
+- dev/: cpm based development dependencies (dev.pl, exec.pl, clean-dev.pl),
+  dev/test-libmaxminddb.pl to run the tests against given libmaxminddb
+  versions (checked with 1.9.1 and 1.14.1) and dev/bench.pl, which compares the
+  startup and lookup cost with MaxMind::DB::Reader and ::XS (replaces tools/).
+- Remove .mailmap and CONTRIBUTING.md, rewrite README.md.
 
 1.000009 2022-04-11
 
