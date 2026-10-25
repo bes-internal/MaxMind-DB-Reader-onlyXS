@@ -9,44 +9,6 @@ only the XS functions are left, there is no dependency on
 links against the [libmaxminddb](http://maxmind.github.io/libmaxminddb/)
 library.
 
-## Why this module exists
-
-The module is made for CGI scripts, where every request starts a new perl
-process: the time of loading modules is paid on every request and is often
-bigger than the lookup itself. `MaxMind::DB::Reader` loads about 90-100
-modules (Moo and its helpers, Sub::Quote, Role::Tiny, List::AllUtils,
-Data::Validate::IP, NetAddr::IP, autodie, Encode, ...) before the first
-lookup, even with `MaxMind::DB::Reader::XS`. `MaxMind::DB::Reader::onlyXS` is
-only the XS code on top of libmaxminddb: it loads three files (itself,
-`XSLoader` and `strict`), `Math::Int128` is loaded on the first `uint128` value
-only, the database is opened with `mmap`.
-
-Result of `perl dev/bench.pl --runs 200 --seconds 3` (perl 5.36.0, Linux
-x86_64, libmaxminddb 1.9.1, the small `GeoIP2-City-Test.mmdb`; the numbers on
-your host will differ, the proportions should not):
-
-Cold: a new process loads the module, opens the database and makes one lookup
-(this is what every CGI request does). "Modules" is the number of files in
-`%INC` after that, nothing else is loaded by the process:
-
-| | median, ms | added over `perl -e1`, ms | modules | RSS, MB |
-|---|---:|---:|---:|---:|
-| `perl -e1` (baseline) | 4.7 | | 0 | 5.0 |
-| `MaxMind::DB::Reader` (pure Perl) | 195.6 | +191.0 | 104 | 19.5 |
-| `MaxMind::DB::Reader::XS` | 138.1 | +133.5 | 88 | 17.1 |
-| `MaxMind::DB::Reader::onlyXS` | 6.1 | **+1.5** | 3 | 5.5 |
-
-`MaxMind::DB::Reader::XS` is used the way it is meant to be used, through
-`MaxMind::DB::Reader->new(...)->record_for_address(...)`.
-
-Warm: lookups per second in a process that has everything loaded:
-
-| | lookups/s |
-|---|---:|
-| `MaxMind::DB::Reader` (pure Perl) | 8 100 |
-| `MaxMind::DB::Reader::XS` | 824 000 |
-| `MaxMind::DB::Reader::onlyXS` | 2 210 000 |
-
 ## Synopsis
 
 ```perl
@@ -77,6 +39,36 @@ If libmaxminddb is installed in a non-standard location:
 
     perl Build.PL --lib /path/to/lib --include /path/to/include
 
+## Motivation
+
+In a short-lived script that makes a single lookup, loading modules takes
+longer than the lookup itself. This module is only the XS code on top of
+libmaxminddb and loads almost nothing else, so it is the fastest choice when
+you call it once.
+
+Result of `perl dev/bench.pl` (perl 5.36.0, Linux x86_64, libmaxminddb 1.9.1,
+`GeoLite2-City.mmdb` of 50 MB).
+
+Cold: a new process loads the module, opens the database and makes one lookup.
+"Modules" is the number of files in `%INC` after that:
+
+| | median, ms | added over `perl -e1`, ms | modules | RSS, MB |
+|---|---:|---:|---:|---:|
+| `perl -e1` (baseline) | 5.0 | | 0 | 5.0 |
+| `MaxMind::DB::Reader` (pure Perl) | 237.4 | +232.4 | 104 | 19.5 |
+| `MaxMind::DB::Reader::XS` | 166.2 | +161.2 | 88 | 17.3 |
+| `IP::Geolocation::MMDB` | 63.8 | +58.8 | 18 | 11.8 |
+| `MaxMind::DB::Reader::onlyXS` | 6.7 | +1.7 | 3 | 5.9 |
+
+Warm: lookups per second in a process that has everything loaded (random IPv4 addresses):
+
+| | lookups/s |
+|---|---:|
+| `MaxMind::DB::Reader` (pure Perl) | 133 |
+| `MaxMind::DB::Reader::XS` | 63 000 |
+| `IP::Geolocation::MMDB` | 63 000 |
+| `MaxMind::DB::Reader::onlyXS` | 63 500 |
+
 ## Contributing
 
 Questions, bug reports and patches: GitHub issues and pull requests at
@@ -93,7 +85,7 @@ or run a single test file:
 
     prove -bv t/lookup.t
 
-The module is used from CGI scripts, so loading it must stay cheap: do not
+The module is made for short-lived scripts, so loading it must stay cheap: do not
 add `use` of other modules to `onlyXS.pm` (`t/lazy-load.t` checks this). Load
 what is rarely needed lazily from the XS code, like `Math::Int128` for the
 `uint128` values.
