@@ -5,13 +5,21 @@
 - Loading the module no longer loads Math::Int64, Math::Int128, strict and
   warnings. Math::Int128 is loaded on the first uint128 value, Math::Int64 only
   on perls with 32-bit IVs.
-- Passing an undefined or malformed database handle to the XS functions now
-  croaks instead of crashing perl.
+- A database handle is now a reference with ext magic instead of a packed
+  pointer: undef, a string or any other value passed as a handle croaks
+  instead of crashing perl, a closed handle croaks, closing twice is fine, and
+  the database is closed when the handle is freed.
+- Initialise the entry data list pointers before the error paths free them.
+- Code path of perls with 32-bit IVs can be built and tested on a 64-bit perl
+  with -DONLYXS_NO_NATIVE_INT64.
+- POD of all functions, LICENSE and the license in dist.ini are the
+  Artistic License 2.0 of the upstream distribution, not Perl_5.
 - Update c/ppport.h (Devel::PPPort 3.68).
 - The version is set in dist.ini (OverridePkgVersion), the maxmind-db
   submodule with the test data is restored.
 - New tests: t/lookup.t (ipv4/ipv6/mixed databases with all record sizes, all
-  data types, broken databases, errors), t/lazy-load.t, t/usage.t.
+  data types, broken databases, errors), t/lazy-load.t, t/usage.t,
+  t/real-db.t (needs MMDB_REAL) and xt/author/leak.t (Test::LeakTrace).
   The old tests of MaxMind::DB::Reader are removed.
 - dev/: cpm based development dependencies (dev.pl, exec.pl, clean-dev.pl),
   dev/test-libmaxminddb.pl to run the tests against given libmaxminddb

@@ -23,4 +23,9 @@ on 'configure' => sub {
 
 on 'develop' => sub {
   requires "Devel::PPPort" => "3.23";
+  requires "File::Spec" => "0";
+  requires "Test::LeakTrace" => "0";
+  requires "Test::More" => "0";
+  requires "strict" => "0";
+  requires "warnings" => "0";
 };

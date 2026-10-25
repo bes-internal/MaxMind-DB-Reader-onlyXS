@@ -49,7 +49,7 @@ sub _mb_args {
   ],
   "dist_name" => "MaxMind-DB-Reader-onlyXS",
   "dist_version" => "1.000010",
-  "license" => "perl",
+  "license" => "artistic_2",
   "module_name" => "MaxMind::DB::Reader::onlyXS",
   "recursive_test_files" => 1,
   "requires" => {

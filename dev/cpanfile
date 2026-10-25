@@ -16,7 +16,7 @@ requires 'Devel::PPPort';
 requires 'Dist::Zilla::Plugin::PruneCruft';
 requires 'Dist::Zilla::Plugin::TestRelease';
 requires 'Dist::Zilla::Plugin::UploadToCPAN';
-requires 'Software::License::Perl_5';
+requires 'Software::License::Artistic_2_0';
 
 requires 'Config::AutoConf';
 requires 'Module::Build';

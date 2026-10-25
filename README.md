@@ -149,13 +149,54 @@ You can also look for information at:
 - GitHub: https://github.com/bes-internal/MaxMind-DB-Reader-onlyXS
 - Upstream: https://github.com/maxmind/MaxMind-DB-Reader-XS
 
+## Limitations
+
+The module is not thread safe: a handle copied into a new ithread is a closed
+handle. It is tested with perls with 64-bit integers; the code path of a perl
+with 32-bit integers (uint64 as `Math::Int64` objects) is tested by building
+with `-DONLYXS_NO_NATIVE_INT64`:
+
+    perl Build.PL --extra_compiler_flags=-DONLYXS_NO_NATIVE_INT64
+
+(`t/lazy-load.t` fails then, as it should: `Math::Int64` is loaded).
+
+To run the tests on a real database:
+
+    MMDB_REAL=/usr/share/GeoIP/GeoLite2-City.mmdb ./Build test
+
+and the memory leak tests (`cpm install -L dev/local Test::LeakTrace`):
+
+    prove -b xt/author/leak.t
+
+## Origin
+
+This is a fork of
+[MaxMind-DB-Reader-XS](https://github.com/maxmind/MaxMind-DB-Reader-XS) up to
+version 1.000009, written by MaxMind, Inc. (the XS code that decodes the
+database is still theirs, see the history of the upstream repository for the
+list of its authors and contributors). MaxMind has deprecated the original
+distribution and does not develop it any more; this one is developed and
+maintained independently.
+
+## Author
+
+Vladimir Varlamov <bes.internal@gmail.com>
+
 ## Copyright and licence
 
-Copyright © 2019-2026 Vladimir Varlamov <bes.internal@gmail.com>
+Copyright (c) 2013-2022 MaxMind, Inc. for the code of the original
+distribution, and (c) 2018-2026 Vladimir Varlamov for the changes.
 
-This module is based on MaxMind-DB-Reader-XS:
-Copyright © 2013-2022 MaxMind, Inc.
-(Boris Zentner, Dave Rolsky, Ran Eilam and contributors)
+This is free software, licensed under The Artistic License 2.0 (GPL
+Compatible), the same license as the original distribution, see the `LICENSE`
+file.
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+Files of other authors included in the distribution keep their own licenses:
+
+- `c/perl_math_int64.*`, `c/perl_math_int128.*` (Salvador Fandino): public
+  domain;
+- `c/ppport.h` (Devel::PPPort): the same terms as Perl itself;
+- `inc/Capture/Tiny.pm` (David Golden): Apache License 2.0;
+- `inc/Config/AutoConf.pm`: the same terms as Perl itself.
+
+The module links against libmaxminddb (Apache License 2.0).
