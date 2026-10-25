@@ -1,13 +1,28 @@
-1.000010 2026-10-25
+1.1.0 2026-10-26
 
 - Fork MaxMind-DB-Reader-onlyXS: only the XS functions are left, no wrapper
   modules and no dependency on MaxMind::DB::Reader, Moo and others.
 - Loading the module no longer loads Math::Int64, Math::Int128, strict and
   warnings. Math::Int128 is loaded on the first uint128 value.
-- A database handle is now a reference with ext magic instead of a packed
-  pointer: undef, a string or any other value passed as a handle croaks
-  instead of crashing perl, a closed handle croaks, closing twice is fine, and
-  the database is closed when the handle is freed.
+- A database handle is now a reference with ext magic instead of
+  a packed pointer, it can not be stored as a string. Anything else passed as
+  a handle (undef, a string) croaks instead of crashing perl, a closed handle
+  croaks, closing twice is fine, and the database is closed when the handle is
+  freed.
+- New __value_for_address( $handle, $ip, @path ): one value of the record
+  (MMDB_aget_value), the rest of the record is not decoded: several times
+  faster than __data_for_address when only some fields are needed.
+- New __lookup_for_address: the same, and returns the prefix length of the
+  network of the record too.
+- A callback of _iterate_search_tree can not use the database after closing
+  or freeing it: _close_mmdb dies while the walk runs and the handle is kept
+  alive until it is over (the database was freed under the walk before). The
+  arguments of the lookup functions are read before the handle is used, a
+  tied argument can not close it under them. The typemap is not needed any
+  more and is removed; a failed allocation of the handle is checked.
+- A NUL byte in a file name, an address or an element of a path is an error
+  instead of cutting the string.
+- POD: the description of the new functions and an example.
 - Print node numbers and data offsets in error messages as unsigned numbers.
 - Add the repository and the bug tracker to the META files (MetaResources).
 - Initialise the entry data list pointers before the error paths free them.
@@ -19,7 +34,7 @@
 - The version is set in dist.ini (OverridePkgVersion), the maxmind-db
   submodule with the test data is restored.
 - New tests: t/lookup.t (ipv4/ipv6/mixed databases with all record sizes, all
-  data types, broken databases, errors), t/lazy-load.t, t/usage.t and t/tree.t
+  data types, broken databases, errors), t/lazy-load.t, t/usage.t, t/value.t and t/tree.t
   (_iterate_search_tree, __read_node, every function with a bad handle).
   The old tests of MaxMind::DB::Reader are removed.
 - dev/: cpm based development dependencies (dev.pl, exec.pl, clean-dev.pl),

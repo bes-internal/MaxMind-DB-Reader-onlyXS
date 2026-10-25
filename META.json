@@ -39,6 +39,7 @@
       },
       "test" : {
          "requires" : {
+            "Data::Dumper" : "0",
             "File::Spec" : "0",
             "Test::More" : "0",
             "strict" : "0",
@@ -58,7 +59,7 @@
          "web" : "https://github.com/bes-internal/MaxMind-DB-Reader-onlyXS"
       }
    },
-   "version" : "1.000010",
+   "version" : "1.1.0",
    "x_generated_by_perl" : "v5.36.0",
    "x_serialization_backend" : "Cpanel::JSON::XS version 4.80",
    "x_spdx_expression" : "Artistic-2.0"
