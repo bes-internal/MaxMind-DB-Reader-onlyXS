@@ -8,6 +8,8 @@
   pointer: undef, a string or any other value passed as a handle croaks
   instead of crashing perl, a closed handle croaks, closing twice is fine, and
   the database is closed when the handle is freed.
+- Print node numbers and data offsets in error messages as unsigned numbers.
+- Add the repository and the bug tracker to the META files (MetaResources).
 - Initialise the entry data list pointers before the error paths free them.
 - Only 64-bit platforms are supported (a 128-bit integer type is needed, as
   before); the code for perls with 32-bit IVs is removed.
@@ -17,7 +19,8 @@
 - The version is set in dist.ini (OverridePkgVersion), the maxmind-db
   submodule with the test data is restored.
 - New tests: t/lookup.t (ipv4/ipv6/mixed databases with all record sizes, all
-  data types, broken databases, errors), t/lazy-load.t and t/usage.t.
+  data types, broken databases, errors), t/lazy-load.t, t/usage.t and t/tree.t
+  (_iterate_search_tree, __read_node, every function with a bad handle).
   The old tests of MaxMind::DB::Reader are removed.
 - dev/: cpm based development dependencies (dev.pl, exec.pl, clean-dev.pl),
   dev/test-libmaxminddb.pl to run the tests against given libmaxminddb

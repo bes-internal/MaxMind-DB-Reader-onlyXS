@@ -260,7 +260,7 @@ static void call_data_callback(MMDB_s *mmdb, SV *data_callback,
         const char *error = MMDB_strerror(status);
         MMDB_free_entry_data_list(entry_data_list);
         croak(
-            "MaxMind::DB::Reader::onlyXS - Entry data error looking at offset %i: %s",
+            "MaxMind::DB::Reader::onlyXS - Entry data error looking at offset %u: %s",
             record_entry->offset, error
             );
     }
@@ -483,7 +483,7 @@ __read_node(mmdb, node_number)
         if (MMDB_SUCCESS != status) {
             const char *error = MMDB_strerror(status);
             croak(
-                "MaxMind::DB::Reader::onlyXS - Error trying to read node %i: %s",
+                "MaxMind::DB::Reader::onlyXS - Error trying to read node %u: %s",
                 node_number, error
                 );
         }

@@ -122,12 +122,15 @@ subtest '_close_mmdb' => sub {
     pass('freeing a handle without _close_mmdb does not crash');
 };
 
-subtest 'file that does not exist' => sub {
-    like(
-        eval { _open( '/nonexistent/GeoLite2-City.mmdb', 1 ); 1 } ? '' : $@,
-        qr/Error opening database file/,
-        '_open_mmdb croaks'
-    );
+subtest 'files that can not be opened' => sub {
+    my $dir = File::Spec->catdir( 'maxmind-db', 'test-data' );
+    for my $path ( '/nonexistent/GeoLite2-City.mmdb', $dir, File::Spec->catfile( $dir, 'README.md' ) ) {
+        like(
+            eval { _open( $path, 1 ); 1 } ? '' : $@,
+            qr/Error opening database file "\Q$path\E"/,
+            "$path: _open_mmdb croaks"
+        );
+    }
 };
 
 done_testing;
