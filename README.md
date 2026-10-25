@@ -33,21 +33,19 @@ Cold: a new process loads the module, opens the database and makes one lookup
 |---|---:|---:|---:|---:|
 | `perl -e1` (baseline) | 4.7 | | 0 | 5.0 |
 | `MaxMind::DB::Reader` (pure Perl) | 195.6 | +191.0 | 104 | 19.5 |
-| `MaxMind::DB::Reader` + `::XS` | 138.1 | +133.5 | 88 | 17.1 |
+| `MaxMind::DB::Reader::XS` | 138.1 | +133.5 | 88 | 17.1 |
 | `MaxMind::DB::Reader::onlyXS` | 6.1 | **+1.5** | 3 | 5.5 |
+
+`MaxMind::DB::Reader::XS` is used the way it is meant to be used, through
+`MaxMind::DB::Reader->new(...)->record_for_address(...)`.
 
 Warm: lookups per second in a process that has everything loaded:
 
 | | lookups/s |
 |---|---:|
 | `MaxMind::DB::Reader` (pure Perl) | 8 100 |
-| `MaxMind::DB::Reader` + `::XS` | 824 000 |
+| `MaxMind::DB::Reader::XS` | 824 000 |
 | `MaxMind::DB::Reader::onlyXS` | 2 210 000 |
-
-For a CGI script the startup cost dominates: `onlyXS` is about 90 times cheaper
-to start than `MaxMind::DB::Reader` + `::XS` (1.5 ms against 133.5 ms), and the
-lookup itself is about 2.7 times faster, because there is no Perl wrapper
-around the XS call.
 
 ## Synopsis
 

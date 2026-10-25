@@ -37,7 +37,7 @@ my %impl = (
         },
     },
     reader_xs => {
-        name => 'MaxMind::DB::Reader + ::XS',
+        name => 'MaxMind::DB::Reader::XS',
         env  => { MAXMIND_DB_READER_IMPLEMENTATION => 'XS' },
         code => q{
             require MaxMind::DB::Reader;

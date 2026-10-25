@@ -16,7 +16,8 @@
 - dev/: cpm based development dependencies (dev.pl, exec.pl, clean-dev.pl),
   dev/test-libmaxminddb.pl to run the tests against given libmaxminddb
   versions (checked with 1.9.1 and 1.14.1) and dev/bench.pl, which compares the
-  startup and lookup cost with MaxMind::DB::Reader and ::XS (replaces tools/).
+  startup and lookup cost with MaxMind::DB::Reader and
+  MaxMind::DB::Reader::XS (replaces tools/).
 - Remove .mailmap and CONTRIBUTING.md, rewrite README.md.
 
 1.000009 2022-04-11
