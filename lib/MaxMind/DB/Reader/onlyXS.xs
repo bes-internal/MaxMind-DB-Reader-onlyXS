@@ -7,11 +7,17 @@ extern "C" {
 #include "perl.h"
 #include "XSUB.h"
 #define NEED_newRV_noinc
+#define NEED_mg_findext
+#define NEED_sv_magicext
 #include "ppport.h"
 #include <sys/socket.h>
 #include "maxminddb.h"
 
+/* Define ONLYXS_NO_NATIVE_INT64 to build the code path of a perl with
+ * 32-bit IVs (uint64 values are Math::Int64 objects) on a 64-bit perl. */
+#ifndef ONLYXS_NO_NATIVE_INT64
 #define MATH_INT64_NATIVE_IF_AVAILABLE
+#endif
 #include "perl_math_int64.h"
 #include "perl_math_int128.h"
 
@@ -34,9 +40,77 @@ static void ensure_int128(pTHX)
  * MATH_INT64_NATIVE_IF_AVAILABLE) and Math::Int64 is not needed at all. */
 static void load_int64(pTHX)
 {
-#if IVSIZE != 8
+#if !(defined(MATH_INT64_NATIVE_IF_AVAILABLE) && (IVSIZE == 8))
     PERL_MATH_INT64_LOAD_OR_CROAK;
 #endif
+}
+
+/* A database handle is a reference to a scalar with ext magic that holds the
+ * MMDB_s pointer. The magic is what makes a scalar a handle: nothing else
+ * (undef, a string, a number, another reference) is accepted, so a wrong
+ * argument croaks instead of crashing perl. The database is closed by
+ * _close_mmdb() or when the last reference to the handle goes away. */
+static void mmdb_handle_close(MAGIC *mg)
+{
+    if (mg->mg_ptr) {
+        MMDB_s *mmdb = (MMDB_s *)mg->mg_ptr;
+        mg->mg_ptr = NULL;
+        MMDB_close(mmdb);
+        free(mmdb);
+    }
+}
+
+static int mmdb_handle_free(pTHX_ SV *sv, MAGIC *mg)
+{
+    mmdb_handle_close(mg);
+    return 0;
+}
+
+/* A copy of the handle in a new ithread must not close the database of the
+ * parent: the copy is a closed handle. */
+static int mmdb_handle_dup(pTHX_ MAGIC *mg, CLONE_PARAMS *param)
+{
+    mg->mg_ptr = NULL;
+    return 0;
+}
+
+static MGVTBL mmdb_handle_vtbl = {
+    NULL, NULL, NULL, NULL, mmdb_handle_free, NULL, mmdb_handle_dup, NULL
+};
+
+static MAGIC *find_mmdb_handle(pTHX_ SV *sv, const char *func)
+{
+    if (SvROK(sv)) {
+        SV *inner = SvRV(sv);
+        if (SvTYPE(inner) >= SVt_PVMG) {
+            MAGIC *mg = mg_findext(inner, PERL_MAGIC_ext, &mmdb_handle_vtbl);
+            if (mg) {
+                return mg;
+            }
+        }
+    }
+    croak("MaxMind::DB::Reader::onlyXS - Invalid database handle passed to %s()",
+          func);
+    return NULL;
+}
+
+static MMDB_s *get_mmdb(pTHX_ SV *sv, const char *func)
+{
+    MAGIC *mg = find_mmdb_handle(aTHX_ sv, func);
+    if (!mg->mg_ptr) {
+        croak("MaxMind::DB::Reader::onlyXS - The database handle passed to %s() is closed",
+              func);
+    }
+    return (MMDB_s *)mg->mg_ptr;
+}
+
+static void set_mmdb_handle(pTHX_ SV *dst, MMDB_s *mmdb)
+{
+    SV *inner = newSV(0);
+    MAGIC *mg = sv_magicext(inner, NULL, PERL_MAGIC_ext, &mmdb_handle_vtbl,
+                            (const char *)mmdb, 0);
+    mg->mg_flags |= MGf_DUP;
+    sv_setsv(dst, sv_2mortal(newRV_noinc(inner)));
 }
 
 static void iterate_record_entry(MMDB_s *mmdb, SV *data_callback,
@@ -187,7 +261,7 @@ static void call_data_callback(MMDB_s *mmdb, SV *data_callback,
         return;
     }
 
-    MMDB_entry_data_list_s *entry_data_list;
+    MMDB_entry_data_list_s *entry_data_list = NULL;
     int status = MMDB_get_entry_data_list(record_entry, &entry_data_list);
     if (MMDB_SUCCESS != status) {
         const char *error = MMDB_strerror(status);
@@ -318,17 +392,17 @@ _open_mmdb(file, flags)
         RETVAL
 
 void
-_close_mmdb(mmdb)
-        MMDB_s *mmdb;
+_close_mmdb(handle)
+        SV *handle;
     CODE:
-        MMDB_close(mmdb);
-        free(mmdb);
+        /* closing a closed handle is not an error */
+        mmdb_handle_close(find_mmdb_handle(aTHX_ handle, "_close_mmdb"));
 
 SV *
 _raw_metadata(mmdb)
         MMDB_s *mmdb
     PREINIT:
-        MMDB_entry_data_list_s *entry_data_list;
+        MMDB_entry_data_list_s *entry_data_list = NULL;
     CODE:
         int status = MMDB_get_metadata_as_entry_data_list(mmdb, &entry_data_list);
         if (MMDB_SUCCESS != status) {
@@ -351,7 +425,7 @@ __data_for_address(mmdb, ip_address)
     PREINIT:
         int gai_status, mmdb_status, get_status;
         MMDB_lookup_result_s result;
-        MMDB_entry_data_list_s *entry_data_list;
+        MMDB_entry_data_list_s *entry_data_list = NULL;
     CODE:
         if (!ip_address || *ip_address == '\0') {
             croak("You must provide an IP address to look up");

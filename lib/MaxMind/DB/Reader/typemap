@@ -9,12 +9,9 @@ INPUT
 O_CHAR
         $var = ($type)SvPVbyte_nolen ($arg)
 
-# a handle is the packed pointer returned by _open_mmdb(); T_OPAQUE would read
-# whatever bytes the scalar holds (undef or a short string crashes perl)
+# only a handle made by _open_mmdb() is accepted (see get_mmdb in the XS code)
 O_MMDB
-        if (!SvPOK($arg) || SvCUR($arg) != sizeof($type) || (($var = *($type *)SvPVX($arg)) == NULL)) {
-            croak(\"MaxMind::DB::Reader::onlyXS - Invalid database handle passed to %s()\", \"$func_name\");
-        }
+        $var = get_mmdb(aTHX_ $arg, \"$func_name\");
 
 OUTPUT
 
@@ -27,4 +24,4 @@ O_CHAR
    }
 
 O_MMDB
-        sv_setpvn($arg, (char *)&$var, sizeof($var));
+        set_mmdb_handle(aTHX_ $arg, $var);

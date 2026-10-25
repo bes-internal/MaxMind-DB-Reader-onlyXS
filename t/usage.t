@@ -19,7 +19,8 @@ sub _record { MaxMind::DB::Reader::onlyXS::__data_for_address(@_) }
 subtest '_open_mmdb( $file, 1 )' => sub {
     my $handle = _open( $file, 1 );
     ok( $handle, 'returns a handle' );
-    ok( !ref $handle, 'the handle is a plain scalar, it can be cached in a global' );
+    ok( ref $handle, 'the handle is a reference, it can be cached in a global' );
+    ok( !!$handle, 'and it is true' );
     is( _record( $handle, '2.125.160.216' )->{city}{names}{en}, 'Boxford', 'handle works' );
     is( _record( $handle, '81.2.69.142' )->{city}{names}{en}, 'London', 'and works repeatedly' );
 };
@@ -85,6 +86,40 @@ subtest 'no handle (the database file was not found)' => sub {
         qr/Invalid database handle passed to _close_mmdb\(\)/,
         '_close_mmdb(undef) croaks'
     );
+};
+
+subtest 'only a handle from _open_mmdb is accepted' => sub {
+    my $handle = _open( $file, 1 );
+    my $err = sub { eval { _record( $_[0], '2.125.160.216' ); 1 } ? '' : $@ };
+
+    # all of these used to be read as a pointer
+    for my $bad ( pack( 'Q', 1 ), 'A' x 8, 12345678, [], {}, \'x', sub { }, \*STDOUT ) {
+        like( $err->($bad), qr/Invalid database handle/, "'" . ( ref $bad || $bad ) . "' croaks" );
+    }
+
+    # a copy of a handle is the same handle
+    my $copy = $handle;
+    is( _record( $copy, '2.125.160.216' )->{city}{names}{en}, 'Boxford', 'copy works' );
+};
+
+subtest '_close_mmdb' => sub {
+    my $handle = _open( $file, 1 );
+    is( _record( $handle, '2.125.160.216' )->{city}{names}{en}, 'Boxford', 'handle works' );
+
+    is( eval { MaxMind::DB::Reader::onlyXS::_close_mmdb($handle); 1 }, 1, 'closes' )
+        or diag $@;
+    like(
+        eval { _record( $handle, '2.125.160.216' ); 1 } ? '' : $@,
+        qr/handle passed to __data_for_address\(\) is closed/,
+        'a closed handle croaks instead of crashing perl'
+    );
+    is( eval { MaxMind::DB::Reader::onlyXS::_close_mmdb($handle); 1 }, 1, 'closing twice is fine' )
+        or diag $@;
+
+    # the database is closed when the handle goes out of scope
+    my $other = _open( $file, 1 );
+    undef $other;
+    pass('freeing a handle without _close_mmdb does not crash');
 };
 
 subtest 'file that does not exist' => sub {
