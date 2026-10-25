@@ -13,7 +13,9 @@
 #   cpm install -L dev/local-bench MaxMind::DB::Reader MaxMind::DB::Reader::XS
 #   perl dev/exec.pl ./Build
 # Run:
-#   perl dev/bench.pl [--runs 200] [--seconds 3] [database.mmdb]
+#   perl dev/bench.pl [--runs 200] [--seconds 3] [--rounds 5] [database.mmdb]
+# The warm run is repeated --rounds times (the implementations alternate) and
+# the median and the range are printed: single runs differ by +-15%.
 use strict;
 use warnings;
 use Cwd 'abs_path';
@@ -56,16 +58,26 @@ my %impl = (
             };
         },
     },
+    ipgeo => {
+        name => 'IP::Geolocation::MMDB',
+        env  => {},
+        code => q{
+            require IP::Geolocation::MMDB;
+            my $r = IP::Geolocation::MMDB->new( file => $file );
+            $lookup = sub { eval { $r->record_for_address( $_[0] ) } };
+        },
+    },
     baseline => {
         name => 'perl -e1 (baseline)',
         env  => {},
         code => q{ $lookup = sub { undef }; },
     },
 );
-my @order = qw( baseline reader_pp reader_xs onlyxs );
+my @order = qw( baseline reader_pp reader_xs ipgeo onlyxs );
 
-my ( $runs, $seconds ) = ( 200, 3 );
-GetOptions( 'runs=i' => \$runs, 'seconds=i' => \$seconds ) or die "bad options\n";
+my ( $runs, $seconds, $rounds ) = ( 200, 3, 5 );
+GetOptions( 'runs=i' => \$runs, 'seconds=i' => \$seconds, 'rounds=i' => \$rounds )
+    or die "bad options\n";
 my $file = shift @ARGV // "$root/maxmind-db/test-data/GeoIP2-City-Test.mmdb";
 die "No database $file\n" unless -f $file;
 die "Run ./Build first (blib/ is missing)\n" unless -d "$root/blib/arch";
@@ -147,8 +159,16 @@ for my $i (@order) {
         $i eq 'baseline' ? '' : sprintf( '   (+%.1f ms over baseline)', $c->{median} - $base );
 }
 
-print "\nWARM: lookups per second in one process ($seconds s each, random IPv4)\n";
+print "\nWARM: lookups per second in one process ($seconds s each, $rounds rounds, random IPv4)\n";
+my %warm;
+for ( 1 .. $rounds ) {
+    for my $i ( grep { $_ ne 'baseline' } @order ) {
+        my ( $n, $s ) = child( $i, 'warm' );
+        push @{ $warm{$i} }, $n / $s;
+    }
+}
+printf "%-34s %12s %12s %12s\n", '', 'median /s', 'min /s', 'max /s';
 for my $i ( grep { $_ ne 'baseline' } @order ) {
-    my ( $n, $s ) = child( $i, 'warm' );
-    printf "%-34s %12.0f /s\n", $impl{$i}{name}, $n / $s;
+    my @w = sort { $a <=> $b } @{ $warm{$i} };
+    printf "%-34s %12.0f %12.0f %12.0f\n", $impl{$i}{name}, $w[ @w / 2 ], $w[0], $w[-1];
 }
