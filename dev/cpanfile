@@ -12,6 +12,7 @@ requires 'Dist::Zilla::Plugin::Manifest';
 requires 'Dist::Zilla::Plugin::MetaJSON';
 requires 'Dist::Zilla::Plugin::MetaYAML';
 requires 'Dist::Zilla::Plugin::PPPort';
+requires 'Devel::PPPort';
 requires 'Dist::Zilla::Plugin::PruneCruft';
 requires 'Dist::Zilla::Plugin::TestRelease';
 requires 'Dist::Zilla::Plugin::UploadToCPAN';
