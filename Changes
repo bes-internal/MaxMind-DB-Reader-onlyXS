@@ -1,4 +1,22 @@
-{{$NEXT}}
+1.000010 2026-10-25
+
+- Fork MaxMind-DB-Reader-onlyXS: only the XS functions are left, no wrapper
+  modules and no dependency on MaxMind::DB::Reader, Moo and others.
+- Loading the module no longer loads Math::Int64, Math::Int128, strict and
+  warnings. Math::Int128 is loaded on the first uint128 value, Math::Int64 only
+  on perls with 32-bit IVs.
+- Passing an undefined or malformed database handle to the XS functions now
+  croaks instead of crashing perl.
+- Update c/ppport.h (Devel::PPPort 3.68).
+- The version is set in dist.ini (OverridePkgVersion), the maxmind-db
+  submodule with the test data is restored.
+- New tests: t/lookup.t (ipv4/ipv6/mixed databases with all record sizes, all
+  data types, broken databases, errors), t/lazy-load.t, t/usage.t.
+  The old tests of MaxMind::DB::Reader are removed.
+- dev/: cpm based development dependencies (dev.pl, exec.pl, clean-dev.pl) and
+  dev/test-libmaxminddb.pl to run the tests against given libmaxminddb versions.
+  Checked with libmaxminddb 1.9.1 and 1.14.1.
+- Remove .mailmap, rewrite README.md and CONTRIBUTING.md.
 
 1.000009 2022-04-11
 
