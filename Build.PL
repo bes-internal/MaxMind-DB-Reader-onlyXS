@@ -48,7 +48,7 @@ sub _mb_args {
     "Vladimir Varlamov <bes.internal\@gmail.com>"
   ],
   "dist_name" => "MaxMind-DB-Reader-onlyXS",
-  "dist_version" => "1.000008",
+  "dist_version" => "1.000010",
   "license" => "perl",
   "module_name" => "MaxMind::DB::Reader::onlyXS",
   "recursive_test_files" => 1,
