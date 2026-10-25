@@ -58,6 +58,11 @@ Do something with code and test:
 
     perl dev/exec.pl dzil release
 
+Test against specific libmaxminddb versions (downloaded and built into
+`dev/local-libmaxminddb`, the working tree is not touched):
+
+    perl dev/test-libmaxminddb.pl 1.9.1 1.14.1
+
 Clean dependencies and build:
 
     perl dev/clean-dev.pl

@@ -27,3 +27,4 @@ lib/MaxMind/DB/Reader/onlyXS.c
 lib/MaxMind/DB/Reader/onlyXS.o
 c/*.o
 MaxMind-DB-Reader-onlyXS-*
+/dev/local-libmaxminddb
