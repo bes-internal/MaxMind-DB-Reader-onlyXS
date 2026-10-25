@@ -9,6 +9,7 @@ requires 'Dist::Zilla::Plugin::ConfirmRelease';
 requires 'Dist::Zilla::Plugin::CopyFilesFromBuild';
 requires 'Dist::Zilla::Plugin::GatherDir';
 requires 'Dist::Zilla::Plugin::Manifest';
+requires 'Dist::Zilla::Plugin::MetaResources';
 requires 'Dist::Zilla::Plugin::MetaJSON';
 requires 'Dist::Zilla::Plugin::MetaYAML';
 requires 'Dist::Zilla::Plugin::PPPort';

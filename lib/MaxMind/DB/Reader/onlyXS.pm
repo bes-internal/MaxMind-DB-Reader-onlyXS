@@ -26,10 +26,10 @@ __END__
 =head1 DESCRIPTION
 
 Fast XS implementation of the MaxMind DB reader without the object oriented
-wrappers. The module is made for CGI scripts: loading it loads nothing but
-L<XSLoader> (and L<strict>, which XSLoader loads), so a script that does
-C<require MaxMind::DB::Reader::onlyXS> in the middle of a request pays about
-1.5 ms for it. L<Math::Int128> is loaded on the first C<uint128> value only.
+wrappers. The module is made for short-lived scripts: loading it loads nothing
+but L<XSLoader> (and L<strict>, which XSLoader loads), so a script that does
+C<require MaxMind::DB::Reader::onlyXS> pays about 1.5 ms for it.
+L<Math::Int128> is loaded on the first C<uint128> value only.
 
 The XS implementation links against the
 L<libmaxminddb|http://maxmind.github.io/libmaxminddb/> library. The functions
@@ -48,7 +48,7 @@ file.
 
 The handle is a reference. It is true, so it can be kept in a global variable
 and checked with C<if (!$db)>. The database is closed when the last copy of
-the handle goes away, a CGI script does not have to close it.
+the handle goes away, a script does not have to close it.
 
 Every function that takes a handle dies with C<Invalid database handle> if it
 gets anything else (undef, a string, a number, a reference to something other

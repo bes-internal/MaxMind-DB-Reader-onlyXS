@@ -47,6 +47,17 @@
       }
    },
    "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/bes-internal/MaxMind-DB-Reader-onlyXS/issues"
+      },
+      "homepage" : "https://github.com/bes-internal/MaxMind-DB-Reader-onlyXS",
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/bes-internal/MaxMind-DB-Reader-onlyXS.git",
+         "web" : "https://github.com/bes-internal/MaxMind-DB-Reader-onlyXS"
+      }
+   },
    "version" : "1.000010",
    "x_generated_by_perl" : "v5.36.0",
    "x_serialization_backend" : "Cpanel::JSON::XS version 4.80",

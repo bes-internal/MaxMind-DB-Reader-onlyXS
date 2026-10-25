@@ -14,8 +14,9 @@ library.
 ```perl
 use MaxMind::DB::Reader::onlyXS;
 
-my $db_fh  = MaxMind::DB::Reader::onlyXS::_open_mmdb( 'path/to/database.mmdb', $flags );
-my $record = MaxMind::DB::Reader::onlyXS::__data_for_address( $db_fh, '1.2.3.4' );
+# 1 is MMDB_MODE_MMAP
+my $db     = MaxMind::DB::Reader::onlyXS::_open_mmdb( 'path/to/database.mmdb', 1 );
+my $record = MaxMind::DB::Reader::onlyXS::__data_for_address( $db, '1.2.3.4' );
 ```
 
 ## Installation
