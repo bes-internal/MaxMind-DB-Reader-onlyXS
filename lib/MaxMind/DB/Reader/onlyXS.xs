@@ -38,18 +38,25 @@ static void ensure_int128(pTHX)
     }
 }
 
+/* An open database: busy is set while the callbacks of _iterate_search_tree
+ * run, they must not close it. */
+typedef struct {
+    MMDB_s mmdb;
+    int busy;
+} onlyxs_db;
+
 /* A database handle is a reference to a scalar with ext magic that holds the
- * MMDB_s pointer. The magic is what makes a scalar a handle: nothing else
+ * onlyxs_db pointer. The magic is what makes a scalar a handle: nothing else
  * (undef, a string, a number, another reference) is accepted, so a wrong
  * argument croaks instead of crashing perl. The database is closed by
  * _close_mmdb() or when the last reference to the handle goes away. */
 static void mmdb_handle_close(MAGIC *mg)
 {
-    if (mg->mg_ptr) {
-        MMDB_s *mmdb = (MMDB_s *)mg->mg_ptr;
+    onlyxs_db *db = (onlyxs_db *)mg->mg_ptr;
+    if (db) {
         mg->mg_ptr = NULL;
-        MMDB_close(mmdb);
-        free(mmdb);
+        MMDB_close(&db->mmdb);
+        free(db);
     }
 }
 
@@ -87,23 +94,26 @@ static MAGIC *find_mmdb_handle(pTHX_ SV *sv, const char *func)
     return NULL;
 }
 
-static MMDB_s *get_mmdb(pTHX_ SV *sv, const char *func)
+/* The database of a handle. Do not run perl code (a callback, a tied
+ * argument) between this and the last use of the result, it could close the
+ * database: get the arguments first. */
+static onlyxs_db *get_db(pTHX_ SV *sv, const char *func)
 {
     MAGIC *mg = find_mmdb_handle(aTHX_ sv, func);
     if (!mg->mg_ptr) {
         croak("MaxMind::DB::Reader::onlyXS - The database handle passed to %s() is closed",
               func);
     }
-    return (MMDB_s *)mg->mg_ptr;
+    return (onlyxs_db *)mg->mg_ptr;
 }
 
-static void set_mmdb_handle(pTHX_ SV *dst, MMDB_s *mmdb)
+static SV *new_mmdb_handle(pTHX_ onlyxs_db *db)
 {
     SV *inner = newSV(0);
     MAGIC *mg = sv_magicext(inner, NULL, PERL_MAGIC_ext, &mmdb_handle_vtbl,
-                            (const char *)mmdb, 0);
+                            (const char *)db, 0);
     mg->mg_flags |= MGf_DUP;
-    sv_setsv(dst, sv_2mortal(newRV_noinc(inner)));
+    return newRV_noinc(inner);
 }
 
 static void iterate_record_entry(MMDB_s *mmdb, SV *data_callback,
@@ -349,52 +359,184 @@ static void iterate_record_entry(MMDB_s *mmdb, SV *data_callback,
     }
 }
 
+/* A string argument for a C function: a NUL byte in it would silently cut
+ * the string (a path, an IP address), so it is an error. */
+static const char *sv_cstr(pTHX_ SV *sv, const char *what)
+{
+    STRLEN len;
+    const char *str = SvPVbyte(sv, len);
+    if (strlen(str) != len) {
+        croak("MaxMind::DB::Reader::onlyXS - The %s contains a NUL byte", what);
+    }
+    return str;
+}
+
+/* Look up an address and decode the record, or only the value at the path
+ * (the strings of path_svs) in it, without decoding the rest of the record.
+ * Returns undef if there is no record or no such value. *prefix is the length
+ * of the network of the record (in the terms of the address family of ip)
+ * and *found tells if there is a record. */
+static SV *lookup_value(pTHX_ SV *handle, const char *func, SV *ip_sv,
+                        SV **path_svs, int path_n, uint16_t *prefix,
+                        int *found)
+{
+    const char *ip = sv_cstr(aTHX_ ip_sv, "IP address");
+    int gai_status, mmdb_status, status;
+    MMDB_lookup_result_s result;
+    MMDB_entry_data_list_s *entry_data_list = NULL;
+
+    *found = 0;
+
+    /* the strings of the path first: a tied or overloaded argument runs perl
+     * code, and path_svs points into the stack, which that code can move */
+    const char **path = NULL;
+    if (path_n > 0) {
+        SV **svs;
+        Newx(svs, path_n, SV *);
+        SAVEFREEPV(svs);
+        Copy(path_svs, svs, path_n, SV *);
+
+        Newx(path, path_n + 1, const char *);
+        SAVEFREEPV(path);
+        for (int i = 0; i < path_n; i++) {
+            path[i] = sv_cstr(aTHX_ svs[i], "path element");
+        }
+        path[path_n] = NULL;
+    }
+
+    MMDB_s *mmdb = &get_db(aTHX_ handle, func)->mmdb;
+
+    if (*ip == '\0') {
+        croak("You must provide an IP address to look up");
+    }
+
+    result = MMDB_lookup_string(mmdb, ip, &gai_status, &mmdb_status);
+    if (0 != gai_status) {
+        croak(
+            "The IP address you provided (%s) is not a valid IPv4 or IPv6 address",
+            ip);
+    }
+    if (MMDB_SUCCESS != mmdb_status) {
+        croak(
+            "MaxMind::DB::Reader::onlyXS - Error looking up IP address \"%s\": %s",
+            ip, MMDB_strerror(mmdb_status));
+    }
+    if (!result.found_entry) {
+        return &PL_sv_undef;
+    }
+
+    *found = 1;
+    /* IPv4 addresses are in ::/96 of an IPv6 database */
+    *prefix = result.netmask;
+    if (mmdb->metadata.ip_version == 6 && !strchr(ip, ':')) {
+        *prefix = result.netmask > 96 ? result.netmask - 96 : 0;
+    }
+
+    if (path_n == 0) {
+        status = MMDB_get_entry_data_list(&result.entry, &entry_data_list);
+        if (MMDB_SUCCESS != status) {
+            MMDB_free_entry_data_list(entry_data_list);
+            croak(
+                "MaxMind::DB::Reader::onlyXS - Entry data error looking up \"%s\": %s",
+                ip, MMDB_strerror(status));
+        }
+        return decode_and_free_entry_data_list(entry_data_list);
+    }
+
+    MMDB_entry_data_s entry_data;
+    status = MMDB_aget_value(&result.entry, &entry_data, path);
+    /* the structure of the records differs, a path that does not fit one of
+     * them is just a value that is not there */
+    if (MMDB_INVALID_LOOKUP_PATH_ERROR == status
+        || MMDB_LOOKUP_PATH_DOES_NOT_MATCH_DATA_ERROR == status) {
+        return &PL_sv_undef;
+    }
+    if (MMDB_SUCCESS != status) {
+        croak(
+            "MaxMind::DB::Reader::onlyXS - Error looking up the value for \"%s\": %s",
+            ip, MMDB_strerror(status));
+    }
+    if (!entry_data.has_data) {
+        return &PL_sv_undef;
+    }
+
+    if (entry_data.type == MMDB_DATA_TYPE_MAP
+        || entry_data.type == MMDB_DATA_TYPE_ARRAY) {
+        MMDB_entry_s entry = result.entry;
+        entry.offset = entry_data.offset;
+        status = MMDB_get_entry_data_list(&entry, &entry_data_list);
+        if (MMDB_SUCCESS != status) {
+            MMDB_free_entry_data_list(entry_data_list);
+            croak(
+                "MaxMind::DB::Reader::onlyXS - Entry data error looking up \"%s\": %s",
+                ip, MMDB_strerror(status));
+        }
+        return decode_and_free_entry_data_list(entry_data_list);
+    }
+
+    MMDB_entry_data_list_s one;
+    memset(&one, 0, sizeof(one));
+    one.entry_data = entry_data;
+    MMDB_entry_data_list_s *current = &one;
+    return decode_simple_value(&current);
+}
+
 /* *INDENT-OFF* */
 
 MODULE = MaxMind::DB::Reader::onlyXS    PACKAGE = MaxMind::DB::Reader::onlyXS
 
-MMDB_s *
-_open_mmdb(file, flags)
-    char *file;
+SV *
+_open_mmdb(file_sv, flags)
+    SV *file_sv;
     U32 flags;
     PREINIT:
-        MMDB_s *mmdb;
-        uint16_t status;
+        onlyxs_db *db;
+        int status;
+        const char *file;
 
     CODE:
-        if (file == NULL) {
-            croak("MaxMind::DB::Reader::onlyXS - No file passed to _open_mmdb()\n");
+        file = sv_cstr(aTHX_ file_sv, "file name");
+        db = (onlyxs_db *)calloc(1, sizeof(onlyxs_db));
+        if (db == NULL) {
+            croak("MaxMind::DB::Reader::onlyXS - Out of memory");
         }
-        mmdb = (MMDB_s *)malloc(sizeof(MMDB_s));
-        status = MMDB_open(file, flags, mmdb);
+        status = MMDB_open(file, flags, &db->mmdb);
 
         if (MMDB_SUCCESS != status) {
             const char *error = MMDB_strerror(status);
-            free(mmdb);
+            free(db);
             croak(
                 "MaxMind::DB::Reader::onlyXS - Error opening database file \"%s\": %s",
                 file, error
                 );
         }
 
-        RETVAL = mmdb;
+        RETVAL = new_mmdb_handle(aTHX_ db);
     OUTPUT:
         RETVAL
 
 void
 _close_mmdb(handle)
         SV *handle;
+    PREINIT:
+        MAGIC *mg;
     CODE:
         /* closing a closed handle is not an error */
-        mmdb_handle_close(find_mmdb_handle(aTHX_ handle, "_close_mmdb"));
+        mg = find_mmdb_handle(aTHX_ handle, "_close_mmdb");
+        if (mg->mg_ptr && ((onlyxs_db *)mg->mg_ptr)->busy) {
+            croak("MaxMind::DB::Reader::onlyXS - The database is in use, it can not be closed by a callback of _iterate_search_tree()");
+        }
+        mmdb_handle_close(mg);
 
 SV *
-_raw_metadata(mmdb)
-        MMDB_s *mmdb
+_raw_metadata(handle)
+        SV *handle
     PREINIT:
         MMDB_entry_data_list_s *entry_data_list = NULL;
+        int status;
     CODE:
-        int status = MMDB_get_metadata_as_entry_data_list(mmdb, &entry_data_list);
+        status = MMDB_get_metadata_as_entry_data_list(
+            &get_db(aTHX_ handle, "_raw_metadata")->mmdb, &entry_data_list);
         if (MMDB_SUCCESS != status) {
             const char *error = MMDB_strerror(status);
             MMDB_free_entry_data_list(entry_data_list);
@@ -409,77 +551,87 @@ _raw_metadata(mmdb)
         RETVAL
 
 SV *
-__data_for_address(mmdb, ip_address)
-        MMDB_s *mmdb
-        char *ip_address
+__data_for_address(handle, ip_sv)
+        SV *handle
+        SV *ip_sv
     PREINIT:
-        int gai_status, mmdb_status, get_status;
-        MMDB_lookup_result_s result;
-        MMDB_entry_data_list_s *entry_data_list = NULL;
+        uint16_t prefix;
+        int found;
     CODE:
-        if (!ip_address || *ip_address == '\0') {
-            croak("You must provide an IP address to look up");
-        }
+        RETVAL = lookup_value(aTHX_ handle, "__data_for_address", ip_sv, NULL,
+                              0, &prefix, &found);
+    OUTPUT:
+        RETVAL
 
-        result = MMDB_lookup_string(mmdb, ip_address, &gai_status, &mmdb_status);
-        if (0 != gai_status) {
-            croak(
-                "The IP address you provided (%s) is not a valid IPv4 or IPv6 address",
-                ip_address);
-        }
-
-        if (MMDB_SUCCESS != mmdb_status) {
-            const char *mmdb_error = MMDB_strerror(mmdb_status);
-            croak(
-                "MaxMind::DB::Reader::onlyXS - Error looking up IP address \"%s\": %s",
-                ip_address, mmdb_error
-                );
-        }
-
-        if (result.found_entry) {
-            get_status = MMDB_get_entry_data_list(&result.entry, &entry_data_list);
-            if (MMDB_SUCCESS != get_status) {
-                const char *get_error = MMDB_strerror(get_status);
-                MMDB_free_entry_data_list(entry_data_list);
-                croak(
-                    "MaxMind::DB::Reader::onlyXS - Entry data error looking up \"%s\": %s",
-                    ip_address, get_error
-                    );
-            }
-            RETVAL = decode_and_free_entry_data_list(entry_data_list);
-        } else {
-            RETVAL = &PL_sv_undef;
-        }
+SV *
+__value_for_address(handle, ip_sv, ...)
+        SV *handle
+        SV *ip_sv
+    PREINIT:
+        uint16_t prefix;
+        int found;
+    CODE:
+        RETVAL = lookup_value(aTHX_ handle, "__value_for_address", ip_sv,
+                              &ST(2), items - 2, &prefix, &found);
     OUTPUT:
         RETVAL
 
 void
-_iterate_search_tree(mmdb, data_callback, node_callback)
-        MMDB_s *mmdb
+__lookup_for_address(handle, ip_sv, ...)
+        SV *handle
+        SV *ip_sv
+    PREINIT:
+        uint16_t prefix = 0;
+        int found = 0;
+        SV *value;
+    PPCODE:
+        value = lookup_value(aTHX_ handle, "__lookup_for_address", ip_sv,
+                             &ST(2), items - 2, &prefix, &found);
+        EXTEND(SP, 2);
+        PUSHs(sv_2mortal(value));
+        if (found) {
+            mPUSHu(prefix);
+        } else {
+            PUSHs(&PL_sv_undef);
+        }
+
+void
+_iterate_search_tree(handle, data_callback, node_callback)
+        SV *handle
         SV *data_callback;
         SV *node_callback;
     PREINIT:
-        uint32_t node_num;
-        int depth;
+        onlyxs_db *db;
         int max_depth;
-    CODE:
-        node_num = 0;
-        depth = 1;
-        max_depth = mmdb->metadata.ip_version == 6 ? 128 : 32;
         mmdb_uint128_t ipnum = 0;
+    CODE:
+        db = get_db(aTHX_ handle, "_iterate_search_tree");
+        max_depth = db->mmdb.metadata.ip_version == 6 ? 128 : 32;
 
-        iterate_search_nodes(mmdb, data_callback, node_callback, node_num,
-            ipnum, depth, max_depth);
+        /* A callback may undef the variable with the handle or try to close
+         * the database: keep the handle alive and the database open until the
+         * walk is over (also when a callback dies). The order matters, the
+         * flag is restored before the handle is released. */
+        ENTER;
+        SAVEFREESV(SvREFCNT_inc_simple_NN(SvRV(handle)));
+        SAVEINT(db->busy);
+        db->busy++;
+
+        iterate_search_nodes(&db->mmdb, data_callback, node_callback, 0,
+            ipnum, 1, max_depth);
+
+        LEAVE;
 
 void
-__read_node(mmdb, node_number)
-        MMDB_s *mmdb
+__read_node(handle, node_number)
+        SV *handle
         U32 node_number
     PREINIT:
         MMDB_search_node_s node;
         int status;
     PPCODE:
-        status = MMDB_read_node(mmdb, node_number, &node);
+        status = MMDB_read_node(&get_db(aTHX_ handle, "__read_node")->mmdb,
+                                node_number, &node);
         if (MMDB_SUCCESS != status) {
             const char *error = MMDB_strerror(status);
             croak(

@@ -149,9 +149,37 @@ subtest '__read_node' => sub {
         qr/Error trying to read node 4294967295:/, 'the node number is printed as unsigned' );
 };
 
+subtest 'a callback that closes or frees the handle' => sub {
+    my $db = _open('MaxMind-DB-test-ipv4-24.mmdb');
+    my $copy = $db;
+
+    like(
+        _err( sub { _walk( $db, sub { MaxMind::DB::Reader::onlyXS::_close_mmdb($copy) }, undef ) } ),
+        qr/The database is in use/,
+        'a data callback can not close the database'
+    );
+    like(
+        _err( sub { _walk( $db, undef, sub { MaxMind::DB::Reader::onlyXS::_close_mmdb($db) } ) } ),
+        qr/The database is in use/,
+        'a node callback can not close the database'
+    );
+    is( scalar( () = _data($db) ), 6, 'the database is open and usable after that' );
+
+    # undef of the variable and of its copy: the walk goes on with the database
+    my $calls = 0;
+    _walk( $db, sub { $calls++; undef $db; undef $copy }, undef );
+    is( $calls, 6, 'a callback that frees all the variables: the walk is complete, perl does not crash' );
+    ok( !defined $db, 'the variable is undef' );
+
+    # closing after the walk works again
+    my $other = _open('MaxMind-DB-test-ipv4-24.mmdb');
+    _walk( $other, sub { }, undef );
+    is( _err( sub { MaxMind::DB::Reader::onlyXS::_close_mmdb($other) } ), '', 'the handle can be closed after the walk' );
+};
+
 subtest 'broken databases' => sub {
     my $tree = _open('MaxMind-DB-test-broken-search-tree-24.mmdb');
-    like( _err( sub { _walk( $tree, sub { }, sub { } ) } ), qr/Invalid record when reading node/, 'broken search tree' );
+    like( _err( sub { _walk( $tree, sub { }, sub { } ) } ), qr/Invalid record when reading node|search tree is corrupt/, 'broken search tree (the message depends on libmaxminddb)' );
 
     my $ptr = _open('MaxMind-DB-test-broken-pointers-24.mmdb');
     like( _err( sub { _walk( $ptr, sub { }, sub { } ) } ), qr/Entry data error looking at offset \d+: .*bad data/, 'broken pointer' );
