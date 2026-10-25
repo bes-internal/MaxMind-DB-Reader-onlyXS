@@ -144,21 +144,11 @@ You can also look for information at:
 ## Limitations
 
 The module is not thread safe: a handle copied into a new ithread is a closed
-handle. It is tested with perls with 64-bit integers; the code path of a perl
-with 32-bit integers (uint64 as `Math::Int64` objects) is tested by building
-with `-DONLYXS_NO_NATIVE_INT64`:
+handle.
 
-    perl Build.PL --extra_compiler_flags=-DONLYXS_NO_NATIVE_INT64
-
-(`t/lazy-load.t` fails then, as it should: `Math::Int64` is loaded).
-
-To run the tests on a real database:
-
-    MMDB_REAL=/usr/share/GeoIP/GeoLite2-City.mmdb ./Build test
-
-and the memory leak tests (`cpm install -L dev/local Test::LeakTrace`):
-
-    prove -b xt/author/leak.t
+Only 64-bit platforms are supported: the code needs a 128-bit integer type,
+which gcc does not have on 32-bit platforms (`Build.PL` stops there, checked
+with perl 5.36 on i386 Debian).
 
 ## Origin
 

@@ -13,10 +13,12 @@ extern "C" {
 #include <sys/socket.h>
 #include "maxminddb.h"
 
-/* Define ONLYXS_NO_NATIVE_INT64 to build the code path of a perl with
- * 32-bit IVs (uint64 values are Math::Int64 objects) on a 64-bit perl. */
-#ifndef ONLYXS_NO_NATIVE_INT64
+/* A 128-bit integer type is needed (Build.PL checks it), it exists on 64-bit
+ * platforms only, where IVs are 64-bit: perl_math_int64.h returns plain UVs
+ * for uint64 values and Math::Int64 is not needed. */
 #define MATH_INT64_NATIVE_IF_AVAILABLE
+#if IVSIZE != 8
+#error "MaxMind::DB::Reader::onlyXS needs a perl with 64-bit integers"
 #endif
 #include "perl_math_int64.h"
 #include "perl_math_int128.h"
@@ -34,15 +36,6 @@ static void ensure_int128(pTHX)
         PERL_MATH_INT128_LOAD_OR_CROAK;
         loaded = 1;
     }
-}
-
-/* With a 64-bit IV perl_math_int64.h returns plain UVs (see
- * MATH_INT64_NATIVE_IF_AVAILABLE) and Math::Int64 is not needed at all. */
-static void load_int64(pTHX)
-{
-#if !(defined(MATH_INT64_NATIVE_IF_AVAILABLE) && (IVSIZE == 8))
-    PERL_MATH_INT64_LOAD_OR_CROAK;
-#endif
 }
 
 /* A database handle is a reference to a scalar with ext magic that holds the
@@ -359,9 +352,6 @@ static void iterate_record_entry(MMDB_s *mmdb, SV *data_callback,
 /* *INDENT-OFF* */
 
 MODULE = MaxMind::DB::Reader::onlyXS    PACKAGE = MaxMind::DB::Reader::onlyXS
-
-BOOT:
-     load_int64(aTHX);
 
 MMDB_s *
 _open_mmdb(file, flags)

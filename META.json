@@ -26,12 +26,7 @@
       },
       "develop" : {
          "requires" : {
-            "Devel::PPPort" : "3.23",
-            "File::Spec" : "0",
-            "Test::LeakTrace" : "0",
-            "Test::More" : "0",
-            "strict" : "0",
-            "warnings" : "0"
+            "Devel::PPPort" : "3.23"
          }
       },
       "runtime" : {

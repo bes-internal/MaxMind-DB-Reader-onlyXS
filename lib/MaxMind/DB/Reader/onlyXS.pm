@@ -29,8 +29,7 @@ Fast XS implementation of the MaxMind DB reader without the object oriented
 wrappers. The module is made for CGI scripts: loading it loads nothing but
 L<XSLoader> (and L<strict>, which XSLoader loads), so a script that does
 C<require MaxMind::DB::Reader::onlyXS> in the middle of a request pays about
-1.5 ms for it. L<Math::Int128> is loaded on the first C<uint128> value only (and
-L<Math::Int64> on perls with 32-bit integers only).
+1.5 ms for it. L<Math::Int128> is loaded on the first C<uint128> value only.
 
 The XS implementation links against the
 L<libmaxminddb|http://maxmind.github.io/libmaxminddb/> library. The functions
@@ -66,8 +65,8 @@ Dies if the address is empty, is not a valid IPv4 or IPv6 address (what
 C<getaddrinfo> does not take as a numeric address), is an IPv6 address and the
 database has only IPv4, or if the database is broken at this record.
 
-Strings have the utf8 flag on. C<uint64> is a plain integer on perls with
-64-bit integers. C<uint128> is a L<Math::UInt128> object.
+Strings have the utf8 flag on. C<uint64> is a plain integer. C<uint128> is a
+L<Math::UInt128> object.
 
 =head2 _raw_metadata( $handle )
 
@@ -95,9 +94,8 @@ Returns the version of the libmaxminddb the module is linked with.
 The module is not thread safe: a handle copied into a new ithread is a closed
 handle.
 
-It is tested with perls with 64-bit integers (the case of 32-bit integers is
-tested only by building the module with C<-DONLYXS_NO_NATIVE_INT64>, which
-makes the 64-bit perl use L<Math::Int64> the way a 32-bit one does).
+Only 64-bit platforms are supported: the code needs a 128-bit integer type,
+which gcc does not have on 32-bit platforms (F<Build.PL> stops there).
 
 =head1 SUPPORT
 
