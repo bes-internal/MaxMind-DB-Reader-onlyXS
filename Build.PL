@@ -59,6 +59,10 @@ sub _mb_args {
     "perl" => "5.010000",
     "strict" => 0,
     "warnings" => 0
+  },
+  "test_requires" => {
+    "File::Spec" => 0,
+    "Test::More" => 0
   }
 );
 

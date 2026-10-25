@@ -1,88 +1,90 @@
-# NAME
+# MaxMind-DB-Reader-onlyXS
 
-MaxMind::DB::Reader::XS - Fast XS implementation of MaxMind DB reader
+Fast XS implementation of MaxMind DB reader without OO wrappers.
 
-# VERSION
+This is a stripped-down fork of
+[MaxMind-DB-Reader-XS](https://github.com/maxmind/MaxMind-DB-Reader-XS):
+only the XS functions are left, there is no dependency on
+`MaxMind::DB::Reader` and the Perl wrapper layer is removed. The module
+links against the [libmaxminddb](http://maxmind.github.io/libmaxminddb/)
+library.
 
-version 1.000009
+## Synopsis
 
-# SYNOPSIS
+```perl
+use MaxMind::DB::Reader::onlyXS;
 
-    my $reader = MaxMind::DB::Reader->new( file => 'path/to/database.mmdb' );
+my $db_fh  = MaxMind::DB::Reader::onlyXS::_open_mmdb( 'path/to/database.mmdb', $flags );
+my $record = MaxMind::DB::Reader::onlyXS::__data_for_address( $db_fh, '1.2.3.4' );
+```
 
-    my $record = $reader->record_for_address('1.2.3.4');
+## Installation
 
-# DESCRIPTION
+Requires libmaxminddb (headers and library), for example on Debian/Ubuntu:
 
-Simply installing this module causes [MaxMind::DB::Reader](https://metacpan.org/pod/MaxMind%3A%3ADB%3A%3AReader) to use the XS
-implementation, which is much faster than the Perl implementation.
+    sudo apt install libmaxminddb-dev
 
-The XS implementation links against the
-[libmaxminddb](http://maxmind.github.io/libmaxminddb/) library.
+To install this package from source:
 
-See [MaxMind::DB::Reader](https://metacpan.org/pod/MaxMind%3A%3ADB%3A%3AReader) for API details.
+    perl Build.PL
+    ./Build
+    ./Build test
+    ./Build install
 
-# VERSIONING POLICY
+or use cpanminus:
 
-This module uses semantic versioning as described by
-[http://semver.org/](http://semver.org/). Version numbers can be read as X.YYYZZZ, where X is the
-major number, YYY is the minor number, and ZZZ is the patch number.
+    cpanm .
 
-# MAC OS X SUPPORT
+If libmaxminddb is installed in a non-standard location:
 
-If you're running into install errors under Mac OS X, you may need to force a
-build of the 64 bit binary. For example, if you're installing via `cpanm`:
+    perl Build.PL --lib /path/to/lib --include /path/to/include
 
-    ARCHFLAGS="-arch x86_64" cpanm MaxMind::DB::Reader::XS
+## Develop CPAN release
 
-# UBUNTU SUPPORT
+Install cpm ( https://metacpan.org/pod/App::cpm ), then dependencies:
 
-The version of libmaxminddb that is available by default with Ubuntu may be
-too old for this level of MaxMind::DB::Reader::XS.  However, we do maintain a
-Launchpad PPA for all supported levels of Ubuntu.
+    cpanm App::cpm
+    perl dev/dev.pl
 
-    https://launchpad.net/~maxmind/+archive/ubuntu/ppa
+Do something with code and test:
 
-Please visit the PPA page for more information, or, to configure your system,
-run as root:
+    perl dev/exec.pl dzil test
 
-    # apt-add-repository ppa:maxmind/ppa
-    # apt-get update
+(don't forget to change: `dist.ini` copyright_year; `.pm` version; `Changes`)
 
-The PPA is now configured, and you may install (or upgrade) the libmaxminddb
-library via the usual apt commands.
+    perl dev/exec.pl dzil build
 
-# SUPPORT
+(git commit/push)
 
-This module is deprecated and will only receive fixes for major bugs and
-security vulnerabilities. New features and functionality will not be added.
+    perl dev/exec.pl dzil release
 
-Please report all issues with this code using the GitHub issue tracker at
-[https://github.com/maxmind/MaxMind-DB-Reader-XS/issues](https://github.com/maxmind/MaxMind-DB-Reader-XS/issues).
+Clean dependencies and build:
 
-Bugs may be submitted through [https://github.com/maxmind/MaxMind-DB-Reader-XS/issues](https://github.com/maxmind/MaxMind-DB-Reader-XS/issues).
+    perl dev/clean-dev.pl
 
-# AUTHORS
+`dzil build` regenerates and copies back to the repository `Build.PL`,
+`META.json`, `META.yml`, `MANIFEST`, `LICENSE`, `cpanfile`, `c/ppport.h`
+and `lib/MaxMind/DB/Reader/onlyXS.pm`; do not edit them by hand.
 
-- Boris Zentner <bzentner@maxmind.com>
-- Dave Rolsky <drolsky@maxmind.com>
-- Ran Eilam <reilam@maxmind.com>
+## Support and documentation
 
-# CONTRIBUTORS
+After installing, you can find documentation for this module with the
+perldoc command.
 
-- Andy Jack <github@veracity.ca>
-- Chris Weyl <cweyl@alumni.drew.edu>
-- Florian Ragwitz <fragwitz@maxmind.com>
-- Greg Oschwald <goschwald@maxmind.com>
-- Hidenori Sugiyama <madogiwa@gmail.com>
-- Mark Fowler <mark@twoshortplanks.com>
-- Nick Logan <nlogan@maxmind.com>
-- Olaf Alders <oalders@maxmind.com>
+    perldoc MaxMind::DB::Reader::onlyXS
 
-# COPYRIGHT AND LICENSE
+You can also look for information at:
 
-This software is Copyright (c) 2013 - 2022 by MaxMind, Inc.
+- GitHub: https://github.com/bes-internal/MaxMind-DB-Reader-onlyXS
+- Upstream: https://github.com/maxmind/MaxMind-DB-Reader-XS
 
-This is free software, licensed under:
+## Copyright and licence
 
-    The Artistic License 2.0 (GPL Compatible)
+Copyright © 2019-2026 Vladimir Varlamov <bes.internal@gmail.com>
+
+This module is based on MaxMind-DB-Reader-XS:
+Copyright © 2013-2022 MaxMind, Inc.
+(Boris Zentner, Dave Rolsky, Ran Eilam and contributors)
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.

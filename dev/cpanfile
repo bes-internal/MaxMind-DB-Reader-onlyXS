@@ -1,0 +1,21 @@
+requires 'File::Path::Tiny';
+
+requires 'Dist::Zilla';
+requires 'Dist::Zilla::Plugin::MinimumPerlFast';
+requires 'Dist::Zilla::Plugin::OverridePkgVersion';
+requires 'Dist::Zilla::Plugin::AutoPrereqs';
+requires 'Dist::Zilla::Plugin::CPANFile';
+requires 'Dist::Zilla::Plugin::ConfirmRelease';
+requires 'Dist::Zilla::Plugin::CopyFilesFromBuild';
+requires 'Dist::Zilla::Plugin::GatherDir';
+requires 'Dist::Zilla::Plugin::Manifest';
+requires 'Dist::Zilla::Plugin::MetaJSON';
+requires 'Dist::Zilla::Plugin::MetaYAML';
+requires 'Dist::Zilla::Plugin::PPPort';
+requires 'Dist::Zilla::Plugin::PruneCruft';
+requires 'Dist::Zilla::Plugin::TestRelease';
+requires 'Dist::Zilla::Plugin::UploadToCPAN';
+requires 'Software::License::Perl_5';
+
+requires 'Config::AutoConf';
+requires 'Module::Build';

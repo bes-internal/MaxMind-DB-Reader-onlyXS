@@ -1,9 +1,11 @@
 package MaxMind::DB::Reader::onlyXS;
 
+# ABSTRACT: Fast XS implementation of MaxMind DB reader
+
 use strict;
 use warnings;
 
-our $VERSION = '1.000008';
+our $VERSION = '1.000010'; # VERSION
 
 use 5.010000;
 

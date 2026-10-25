@@ -21,3 +21,9 @@ cover_db*
 lib/MaxMind/DB/Reader/XS.c
 lib/MaxMind/DB/Reader/XS.o
 pm_to_blib*
+/dev/local
+/local
+lib/MaxMind/DB/Reader/onlyXS.c
+lib/MaxMind/DB/Reader/onlyXS.o
+c/*.o
+MaxMind-DB-Reader-onlyXS-*
