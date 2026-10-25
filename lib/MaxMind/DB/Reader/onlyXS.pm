@@ -2,16 +2,9 @@ package MaxMind::DB::Reader::onlyXS;
 
 # ABSTRACT: Fast XS implementation of MaxMind DB reader
 
-use strict;
-use warnings;
-
 our $VERSION = '1.000010'; # VERSION
 
 use 5.010000;
-
-# We depend on these in the C/XS code.
-use Math::Int64  ();
-use Math::Int128 ();
 
 use XSLoader;
 

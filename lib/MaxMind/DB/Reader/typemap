@@ -1,6 +1,6 @@
 TYPEMAP
 char *        O_CHAR
-MMDB_s *      T_OPAQUE
+MMDB_s *      O_MMDB
 
 INPUT
 
@@ -8,6 +8,13 @@ INPUT
 # should be same as if O_CHAR wasn't defined
 O_CHAR
         $var = ($type)SvPVbyte_nolen ($arg)
+
+# a handle is the packed pointer returned by _open_mmdb(); T_OPAQUE would read
+# whatever bytes the scalar holds (undef or a short string crashes perl)
+O_MMDB
+        if (!SvPOK($arg) || SvCUR($arg) != sizeof($type) || (($var = *($type *)SvPVX($arg)) == NULL)) {
+            croak(\"MaxMind::DB::Reader::onlyXS - Invalid database handle passed to %s()\", \"$func_name\");
+        }
 
 OUTPUT
 
@@ -18,3 +25,6 @@ O_CHAR
         free($var);
         sv_2mortal($arg);
    }
+
+O_MMDB
+        sv_setpvn($arg, (char *)&$var, sizeof($var));

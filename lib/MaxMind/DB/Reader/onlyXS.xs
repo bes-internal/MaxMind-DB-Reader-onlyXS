@@ -19,6 +19,26 @@ extern "C" {
 }
 #endif
 
+/* Math::Int128 is only needed for uint128 values; load it on first use so
+ * that a plain lookup does not pay for it. */
+static void ensure_int128(pTHX)
+{
+    static int loaded = 0;
+    if (!loaded) {
+        PERL_MATH_INT128_LOAD_OR_CROAK;
+        loaded = 1;
+    }
+}
+
+/* With a 64-bit IV perl_math_int64.h returns plain UVs (see
+ * MATH_INT64_NATIVE_IF_AVAILABLE) and Math::Int64 is not needed at all. */
+static void load_int64(pTHX)
+{
+#if IVSIZE != 8
+    PERL_MATH_INT64_LOAD_OR_CROAK;
+#endif
+}
+
 static void iterate_record_entry(MMDB_s *mmdb, SV *data_callback,
                                  SV *node_callback, uint32_t node_num,
                                  mmdb_uint128_t ipnum, int depth,
@@ -56,6 +76,7 @@ static SV *decode_simple_value(MMDB_entry_data_list_s **current)
          * the pure Perl MaxMind::DB::Reader requires Math::Int128, which in
          * turn requires GCC 4.4+. Therefore we know that we have an int128
          * type available if this code is compiling at all. */
+        ensure_int128(aTHX);
         return newSVu128(entry_data.uint128);
     case MMDB_DATA_TYPE_BOOLEAN:
         /* Note to future coders - do not use PL_sv_yes, PL_sv_no, or bool_sv
@@ -185,6 +206,7 @@ static void call_data_callback(MMDB_s *mmdb, SV *data_callback,
 
     PUSHMARK(SP);
     EXTEND(SP, 3);
+    ensure_int128(aTHX);
     mPUSHs(newSVu128(ipnum));
     mPUSHi(depth);
     mPUSHs(decoded_entry);
@@ -265,8 +287,7 @@ static void iterate_record_entry(MMDB_s *mmdb, SV *data_callback,
 MODULE = MaxMind::DB::Reader::onlyXS    PACKAGE = MaxMind::DB::Reader::onlyXS
 
 BOOT:
-     PERL_MATH_INT64_LOAD_OR_CROAK;
-     PERL_MATH_INT128_LOAD_OR_CROAK;
+     load_int64(aTHX);
 
 MMDB_s *
 _open_mmdb(file, flags)

@@ -56,13 +56,13 @@ sub _mb_args {
     "Math::Int128" => 0,
     "Math::Int64" => 0,
     "XSLoader" => 0,
-    "perl" => "5.010000",
-    "strict" => 0,
-    "warnings" => 0
+    "perl" => "5.010000"
   },
   "test_requires" => {
     "File::Spec" => 0,
-    "Test::More" => 0
+    "Test::More" => 0,
+    "strict" => 0,
+    "warnings" => 0
   }
 );
 
